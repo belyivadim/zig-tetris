@@ -1,0 +1,18 @@
+.{
+    .name = "zrl",
+    .version = "0.0.1",
+    .dependencies = .{
+        .raylib = .{
+            .url = "https://github.com/raysan5/raylib/archive/b03c8ba945a06ed1ec3d6ed7c3185e1264909323.tar.gz",
+            .hash = "1220b6b6198344837d51588b1ed3f63cd6b56b2d60da675219f7578018b54f885830",
+            // .url = "https://github.com/raysan5/raylib/releases/download/5.0/raylib-5.0_linux_amd64.tar.gz",
+            // .hash = "122041e7e8965f8a9ea4f8e9e1259620649e466dd5dbe51fc4fb541dc41b67c205e1",
+        },
+    },
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "README.md",
+        "src",
+    },
+}
