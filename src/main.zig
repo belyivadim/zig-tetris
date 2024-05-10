@@ -169,6 +169,8 @@ const Grid = struct {
                     const index = self.indexOfCell(GridPosition{.row = @intCast(r), .col = @intCast(c)});
                     self.cells[index] = false;
                 }
+
+                gameState.score += @intCast(self.cols);
             }
         }
     }
@@ -322,15 +324,24 @@ const Grid = struct {
 
         return true;
     }
+
+    fn clean(self: *Grid) void {
+        @memset(self.cells, false);
+        @memset(self.hanging_empty_rows, 0);
+        self.hanging_rows_count = 0;
+    }
 };
 
 const GameState = struct {
-    grid:             Grid,
-    active_block:      ?Block = null,
-    next_block_shape: BlockShape,
+    grid:               Grid,
+    active_block:       ?Block = null,
+    next_block_shape:   BlockShape,
     time_to_tick:       f32 = 0.5,
-    tick_time:         f32 = 0.5,
+    tick_time:          f32 = 0.5,
     original_tick_time: f32 = 0.5,
+    score:              usize = 0,
+    loosed:             bool = false,
+
 
     fn createBlock(self: *GameState) void {
         const colors = [_]rl.Color{
@@ -344,17 +355,44 @@ const GameState = struct {
             .n_rotations = 0,
         };
 
+        const parts = block.getAllParts();
+        for (parts) |part| {
+            if (self.grid.cells[self.grid.indexOfCell(part.grid_position)]) {
+                self.loosed = true;
+                self.active_block = null;
+                return;
+            }
+        }
+
         self.active_block = block;
 
         self.next_block_shape = @enumFromInt(rl.GetRandomValue(0, @typeInfo(BlockShape).Enum.fields.len - 1));
     }
 
-    fn draw(self: *const GameState) void {
+    fn drawGame(self: *const GameState) void {
         self.grid.draw();
 
         if (self.active_block) |b| {
             b.draw();
         }
+    }
+
+    fn drawGui(self: *const GameState) void {
+        const score_text = std.fmt.allocPrintZ(main_allocator, "SCORE: {d}", .{self.score}) catch "SCORE: ???";
+        defer main_allocator.free(score_text);
+        if (self.loosed) {
+            const bg_width = @divFloor(gameConfig.getWindowWidth(), 2);
+            const bg_height = @divFloor(gameConfig.getWindowWidth(), 6);
+            const bg_x = @divFloor(gameConfig.getWindowWidth(), 2) - @divFloor(bg_width, 2);
+            const bg_y = @divFloor(gameConfig.getWindowHeight(), 2) - @divFloor(bg_height, 2);
+            const bg_color = rl.ColorAlpha(rl.BLACK, 0.75);
+            rl.DrawRectangle(bg_x, bg_y, bg_width, bg_height, bg_color);
+
+            const loose_x = bg_x + @divFloor(bg_width, 2) - 75;
+            const loose_y = bg_y + @divFloor(bg_height, 2) - 12;
+            rl.DrawText("YOU LOOSE!", loose_x, loose_y, 24, rl.RED);
+        }
+        rl.DrawText(score_text, 30, 30, 24, rl.GOLD);
     }
 
     fn resetTicker(self: *GameState) void {
@@ -1308,6 +1346,18 @@ fn update() void {
 }
 
 fn updateLogic() void {
+
+    if (gameState.loosed) {
+        if (rl.IsKeyPressed(rl.KEY_ENTER)) {
+            gameState.loosed = false;
+            gameState.grid.clean();
+            gameState.score = 0;
+            gameState.tick_time = gameState.original_tick_time;
+            gameState.resetTicker();
+        }
+        return;
+    }
+
     const dt = rl.GetFrameTime();
     gameState.time_to_tick -= dt;
 
@@ -1346,6 +1396,7 @@ fn updateLogic() void {
         }
     } else {
         gameState.createBlock();
+        gameState.score += 1;
     }
 }
 
@@ -1356,7 +1407,8 @@ fn drawFrame() void {
     rl.ClearBackground(gameConfig.background_color);
     rl.DrawFPS(gameConfig.getWindowWidth() - 90, 30);
 
-    gameState.draw();
+    gameState.drawGame();
+    gameState.drawGui();
 }
 
 
