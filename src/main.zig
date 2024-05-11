@@ -181,6 +181,7 @@ const Grid = struct {
             self.cells[index] = true;
         }
 
+        rl.PlaySound(gameState.block_sound);
         self.clearFilledRows();
     }
 
@@ -341,6 +342,9 @@ const GameState = struct {
     original_tick_time: f32 = 0.5,
     score:              usize = 0,
     loosed:             bool = false,
+    block_sound:        rl.Sound,
+    gameover_sound:     rl.Sound,
+    bg_music:           rl.Music,
 
 
     fn createBlock(self: *GameState) void {
@@ -358,6 +362,7 @@ const GameState = struct {
         const parts = block.getAllParts();
         for (parts) |part| {
             if (self.grid.cells[self.grid.indexOfCell(part.grid_position)]) {
+                rl.PlaySound(gameState.gameover_sound);
                 self.loosed = true;
                 self.active_block = null;
                 return;
@@ -1311,6 +1316,10 @@ pub fn main() !void {
 }
 
 fn initGame() !void {
+    rl.InitWindow(gameConfig.getWindowWidth(), gameConfig.getWindowHeight(), gameConfig.window_name);
+    rl.SetTargetFPS(gameConfig.targetFPS); 
+    rl.InitAudioDevice();
+
     const c_time = @cImport(@cInclude("time.h"));
     rl.SetRandomSeed(@intCast(c_time.time(null)));
 
@@ -1329,18 +1338,30 @@ fn initGame() !void {
     gameState = GameState{
         .grid = try Grid.new(&main_allocator, rows, cols, grid_position),
         .next_block_shape = @enumFromInt(rl.GetRandomValue(0, @typeInfo(BlockShape).Enum.fields.len - 1)),
+        .block_sound = rl.LoadSound("resources/sounds/block_sound.wav"),
+        .gameover_sound = rl.LoadSound("resources/sounds/game_over.wav"),
+        .bg_music = rl.LoadMusicStream("resources/sounds/background_music.wav"),
     };
 
-    rl.InitWindow(gameConfig.getWindowWidth(), gameConfig.getWindowHeight(), gameConfig.window_name);
-    rl.SetTargetFPS(gameConfig.targetFPS); 
+    rl.SetSoundVolume(gameState.block_sound, 0.34);
+    rl.SetSoundVolume(gameState.gameover_sound, 0.34);
+    rl.SetMusicVolume(gameState.bg_music, 0.05);
+    rl.PlayMusicStream(gameState.bg_music);
 }
 
 fn deinitGame() void {
+    rl.UnloadSound(gameState.block_sound);
+    rl.UnloadSound(gameState.gameover_sound);
+    rl.PlayMusicStream(gameState.bg_music);
+    rl.UnloadMusicStream(gameState.bg_music);
+
+    rl.CloseAudioDevice();
     rl.CloseWindow();
     gameState.grid.destroy();
 }
 
 fn update() void {
+    rl.UpdateMusicStream(gameState.bg_music);
     updateLogic();
     drawFrame();
 }
